@@ -98,7 +98,6 @@ namespace particles{
 			initEnergy = energy();
 		}
 		~particleClass(){};
-		void initialize(){}
 		void setIntegrate(int _integrateMethod){
 			integrateMethod = _integrateMethod;
 		}

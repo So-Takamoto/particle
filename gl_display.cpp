@@ -3,6 +3,7 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <fstream>
 #include "freeglut.h"
 #pragma comment( lib, "freeglut.lib" )
 
@@ -10,13 +11,18 @@
 #include "bitmapUtil.h"
 
 using namespace particles;
+
+void initialize();
+
 const int Windowsize = 600;
-const int PointNum = 50;
+const int PointNum = 40;
 particleClass pc;
 std::deque<std::vector<std::pair<double,double> > > locus;
 bool showLocus = true;
 char windowPixels[3*Windowsize*Windowsize];
 int tickCount = 0;
+int repeat = 1;
+double speedup = 1;
 
 void locusAdd(){
 	locus.push_front(pc.vertices());
@@ -27,9 +33,7 @@ void locusAdd(){
 
 void timertick(int value)
 {
-	const int repeat = 100;
 	const int sleepms = 30;
-	const double speedup = 100;
 	for(int i = 0; i < repeat; i++){
 		pc.move(sleepms / 1000.0 / static_cast<double>(repeat) * speedup);
 		locusAdd();
@@ -43,11 +47,14 @@ void timertick(int value)
 	//saveBMP(ss.str(), Windowsize, Windowsize, windowPixels);
 
 	tickCount++;
-	/*
-	if(tickCount > 7000){
-		exit(0);
-	}
-	*/
+
+	//std::ofstream ofs("data/case4.dat", std::ios::app);
+	//ofs << pc.energyDiff() << std::endl;
+	
+	//if(tickCount > 2000){
+	//	exit(0);
+	//}
+	
 }
 
 
@@ -60,8 +67,16 @@ void keydown(unsigned char key, int x, int y){
 		pc.setIntegrate(key - '0');
 		break;
 	case 'i':
-		pc.initialize();
+		initialize();
 		locus.clear();
+		break;
+	case 'a':
+		repeat = 1;
+		speedup = 1;
+		break;
+	case 's':
+		repeat = 100;
+		speedup = 100;
 		break;
 	case 'l':
 		showLocus = !showLocus;
@@ -83,7 +98,7 @@ void display_string(float x, float y, std::string str){
 void display_params(){
 	std::stringstream ss;
 
-	display_string(-0.9f, 0.9f, "<Keys> 1/2/3:Methods, i:init, l:locus q:quit");
+	display_string(-0.9f, 0.9f, "<Keys> 1/2/3:Methods, i:init, a,s:speed, l:locus q:quit");
 
 	ss.setf(std::ios::showpoint);
 	ss.str("");
@@ -91,11 +106,11 @@ void display_params(){
 	display_string(-0.9f, 0.82f, ss.str());
 	ss.str("");
 	ss << "energy: "
-		<< std::setprecision(10) << std::setw(6) << pc.energyDiff()*1.0e2;
+		<< std::setprecision(5) << std::setw(6) << pc.energyDiff()*1.0e2;
 	display_string(-0.9f, 0.74f, ss.str());
 	ss.str("");
 	ss << "Moment: "
-		<< std::setprecision(10) << std::setw(6) << pc.mx()*1.0e16 << "  " << pc.my()*1.0e16;
+		<< std::setprecision(5) << std::setw(6) << pc.mx()*1.0e16 << "  " << pc.my()*1.0e16;
 	display_string(-0.9f, 0.66f, ss.str());
 	ss.str("");
 	ss << "Count: "
@@ -110,7 +125,7 @@ void display(void)
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
-	float colors[3][3] = {{0.275f, 0.510f, 0.706f},{0.196f, 0.804f, 0.196f},{0.933f, 0.902f, 0.522f}};
+	float colors[4][3] = {{0.275f, 0.510f, 0.706f},{0.196f, 0.804f, 0.196f},{0.933f, 0.902f, 0.522f},{1.000f, 0.416f, 0.416f}};
 
 	if(showLocus){
 		glPointSize(1.0f);
@@ -120,26 +135,28 @@ void display(void)
 			int pCount = 0;
 			for(auto it = locus.rbegin(); it != locus.rend(); ++it){
 				float colorMul = static_cast<float>(static_cast<double>(pCount)/static_cast<double>(locus.size()));
-				glColor3f(colors[i%3][0]*colorMul, colors[i%3][1]*colorMul, colors[i%3][2]*colorMul);
+				glColor3f(colors[i%4][0]*colorMul, colors[i%4][1]*colorMul, colors[i%4][2]*colorMul);
 				glVertex2d(it->at(i).first*dR, it->at(i).second*dR);
 				pCount++;
 			}
 			glEnd();
 		}
 	}
-	glPointSize(5.0f);
-	glColor3f(1.000f, 1.000f, 1.000f);
-	glBegin(GL_POINTS);
+	glColor3f(1.0f, 1.0f, 1.0f);
 	for(unsigned int i = 0; i < locus.front().size(); i++){
-		glVertex2d(locus.front().at(i).first*dR, locus.front().at(i).second*dR);
+		glBegin(GL_POLYGON);
+		for (int j = 0; j < 10; j++) {
+			double deg = static_cast<double>(j) / 10.0;
+			glVertex2d(locus.front().at(i).first*dR + 0.01 * cos(2.0 * PI * deg), locus.front().at(i).second*dR + 0.01 * sin(2.0 * PI * deg));
+		}
+		glEnd();
 	}
-	glEnd();
 	
 	display_params();
 
 	glutSwapBuffers();
 }
-int main(int argc, char** argv){
+void initialize(){
 	std::vector<std::pair<double, partState> > particles;
 	particles.push_back(std::pair<double, partState>(5000.0, partState(0.0, 0.0, 0.0, 0.0)));
 	particles.push_back(std::pair<double, partState>(1.0, partState(0.0, -0.2, 1.3, 0.4)));
@@ -157,6 +174,9 @@ int main(int argc, char** argv){
 	particles.push_back(std::pair<double, partState>(1.0, partState(0.0, -0.68, 0.7, 0.4)));
 	pc = particleClass(particles);
 	pc.setIntegrate(4);
+}
+int main(int argc, char** argv){
+	initialize();
 	locusAdd();
 
     glutInitWindowPosition(100, 100);
